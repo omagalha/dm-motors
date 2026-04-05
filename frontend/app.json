@@ -13,9 +13,10 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Tire fotos do veículo",
         "NSPhotoLibraryUsageDescription": "Selecione fotos da galeria",
-        "NSPhotoLibraryAddUsageDescription": "Salvar fotos dos veículos"
+        "NSPhotoLibraryAddUsageDescription": "Salvar fotos dos veículos",
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
+        }
       }
     },
     "android": {

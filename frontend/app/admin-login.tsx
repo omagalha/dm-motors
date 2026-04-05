@@ -12,7 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 
-const API_URL = "http://192.168.0.112:5000/api";
+const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function AdminLoginScreen() {
   const [username, setUsername] = useState("");
@@ -27,10 +27,15 @@ export default function AdminLoginScreen() {
       return;
     }
 
+    if (!API_URL) {
+      Alert.alert("Erro", "EXPO_PUBLIC_BACKEND_URL não configurada.");
+      return;
+    }
+
     try {
       setLoading(true);
 
-      const response = await fetch(`${API_URL}/admin/login`, {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -54,18 +59,15 @@ export default function AdminLoginScreen() {
         throw new Error(data?.detail || "Credenciais inválidas");
       }
 
-      if (!data?.access_token) {
+      if (!data?.token) {
         throw new Error("Token de acesso não recebido.");
       }
 
-      await AsyncStorage.setItem("admin_token", data.access_token);
+      await AsyncStorage.setItem("admin_token", data.token);
       router.replace("/(tabs)/admin");
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "Não foi possível fazer login.";
-
+        error instanceof Error ? error.message : "Não foi possível fazer login.";
       Alert.alert("Erro", message);
     } finally {
       setLoading(false);
@@ -84,9 +86,7 @@ export default function AdminLoginScreen() {
           value={username}
           onChangeText={setUsername}
           autoCapitalize="none"
-          autoCorrect={false}
-          editable={!loading}
-          returnKeyType="next"
+          placeholderTextColor="#999"
         />
 
         <TextInput
@@ -95,9 +95,7 @@ export default function AdminLoginScreen() {
           value={password}
           onChangeText={setPassword}
           secureTextEntry
-          editable={!loading}
-          returnKeyType="done"
-          onSubmitEditing={handleLogin}
+          placeholderTextColor="#999"
         />
 
         <TouchableOpacity

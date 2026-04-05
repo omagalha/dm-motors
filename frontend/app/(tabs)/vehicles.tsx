@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Linking,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -23,19 +24,43 @@ const COLORS = {
   dark: "#222222",
 };
 
-const API_URL = "http://192.168.0.112:5000/api";
+const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+
+type Vehicle = {
+  id: string;
+  brand: string;
+  model: string;
+  year: number;
+  mileage?: number;
+  color?: string;
+  price: number;
+  description?: string;
+  photos?: string[];
+};
 
 export default function VehiclesScreen() {
-  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchVehicles = async () => {
     try {
-      const response = await fetch(`${API_URL}/vehicles`);
+      if (!API_URL) {
+        console.error("EXPO_PUBLIC_BACKEND_URL não configurada.");
+        Alert.alert("Erro", "EXPO_PUBLIC_BACKEND_URL não configurada.");
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/api/vehicles`);
       const data = await response.json();
-      setVehicles(data);
+
+      if (!response.ok) {
+        throw new Error(data?.detail || "Erro ao buscar veículos");
+      }
+
+      setVehicles(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao buscar veículos:", error);
+      Alert.alert("Erro", "Não foi possível carregar os veículos.");
     } finally {
       setLoading(false);
     }
@@ -45,26 +70,25 @@ export default function VehiclesScreen() {
     fetchVehicles();
   }, []);
 
-  const handleWhatsApp = (vehicle: any) => {
+  const handleWhatsApp = (vehicle: Vehicle) => {
     const phone = "5532999264848";
     const message = `Olá! Tenho interesse no ${vehicle.brand} ${vehicle.model} ${vehicle.year}`;
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-
     Linking.openURL(url);
   };
 
-  const handleDetails = (vehicle: any) => {
-    router.push({
-      pathname: "/CarDetails",
-      params: {
-        car: JSON.stringify(vehicle),
-      },
-    });
+  const handleDetails = (vehicle: Vehicle) => {
+    router.push(`/vehicles/${vehicle.id}`);
   };
 
-  const renderItem = ({ item }: any) => (
+  const renderItem = ({ item }: { item: Vehicle }) => (
     <View style={styles.card}>
-      <Image source={{ uri: item.image }} style={styles.image} />
+      <Image
+        source={{
+          uri: item.photos?.[0] || "https://via.placeholder.com/400x300?text=Sem+foto",
+        }}
+        style={styles.image}
+      />
 
       <View style={styles.info}>
         <Text style={styles.title}>
@@ -72,7 +96,8 @@ export default function VehiclesScreen() {
         </Text>
 
         <Text style={styles.subtitle}>
-          {item.year} • {item.transmission || "Automático"}
+          {item.year}
+          {item.mileage !== undefined ? ` • ${Number(item.mileage).toLocaleString("pt-BR")} km` : ""}
         </Text>
 
         <Text style={styles.price}>
@@ -105,7 +130,9 @@ export default function VehiclesScreen() {
       <Text style={styles.header}>Veículos disponíveis</Text>
 
       {loading ? (
-        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
+        <View style={{ paddingTop: 40 }}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
       ) : (
         <FlatList
           data={vehicles}
@@ -127,13 +154,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.white,
   },
-
   header: {
     fontSize: 22,
     fontWeight: "800",
     padding: 16,
+    color: COLORS.black,
   },
-
   card: {
     backgroundColor: COLORS.white,
     borderRadius: 16,
@@ -142,41 +168,34 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-
   image: {
     width: "100%",
     height: 180,
   },
-
   info: {
     padding: 16,
   },
-
   title: {
     fontSize: 18,
     fontWeight: "800",
     color: COLORS.black,
   },
-
   subtitle: {
     fontSize: 14,
     color: COLORS.gray,
     marginTop: 4,
   },
-
   price: {
     fontSize: 18,
     fontWeight: "800",
     color: COLORS.primary,
     marginTop: 8,
   },
-
   buttonRow: {
     flexDirection: "row",
     gap: 10,
     marginTop: 12,
   },
-
   detailsButton: {
     flex: 1,
     backgroundColor: COLORS.dark,
@@ -184,7 +203,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
   },
-
   whatsappButton: {
     flex: 1,
     backgroundColor: COLORS.green,
@@ -192,17 +210,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
   },
-
   detailsButtonText: {
     color: COLORS.white,
     fontWeight: "700",
   },
-
   buttonText: {
     color: COLORS.white,
     fontWeight: "700",
   },
-
   emptyText: {
     textAlign: "center",
     color: COLORS.gray,

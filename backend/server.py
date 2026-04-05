@@ -146,6 +146,81 @@ def create_token(username: str) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
+def to_int(value, default=0) -> int:
+    try:
+        if value is None or value == "":
+            return default
+        if isinstance(value, bool):
+            return default
+        if isinstance(value, str):
+            cleaned = value.replace(".", "").replace(",", "").strip()
+            if cleaned == "":
+                return default
+            return int(float(cleaned))
+        return int(value)
+    except Exception:
+        return default
+
+
+def to_float(value, default=0.0) -> float:
+    try:
+        if value is None or value == "":
+            return default
+        if isinstance(value, bool):
+            return default
+        if isinstance(value, str):
+            cleaned = (
+                value.replace("R$", "")
+                .replace("r$", "")
+                .replace(" ", "")
+                .replace(".", "")
+                .replace(",", ".")
+                .strip()
+            )
+            if cleaned == "":
+                return default
+            return float(cleaned)
+        return float(value)
+    except Exception:
+        return default
+
+
+def normalize_photos(vehicle: dict) -> List[str]:
+    photos = vehicle.get("photos")
+
+    if isinstance(photos, list):
+        return [str(item) for item in photos if item]
+
+    if isinstance(photos, str) and photos.strip():
+        return [photos.strip()]
+
+    image = vehicle.get("image")
+    if isinstance(image, str) and image.strip():
+        return [image.strip()]
+
+    return []
+
+
+def normalize_vehicle_document(vehicle: dict) -> dict:
+    if not vehicle:
+        return vehicle
+
+    normalized = {
+        "id": str(vehicle.get("id") or vehicle.get("_id") or uuid.uuid4()),
+        "brand": str(vehicle.get("brand") or "").strip(),
+        "model": str(vehicle.get("model") or "").strip(),
+        "year": to_int(vehicle.get("year"), 0),
+        "mileage": to_int(vehicle.get("mileage", vehicle.get("km", 0)), 0),
+        "color": str(vehicle.get("color") or "").strip(),
+        "price": to_float(vehicle.get("price"), 0.0),
+        "description": str(vehicle.get("description") or "").strip(),
+        "photos": normalize_photos(vehicle),
+        "created_at": vehicle.get("created_at") or datetime.utcnow(),
+    }
+
+    return normalized
+
+
 async def get_current_admin(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ):
@@ -258,7 +333,13 @@ async def delete_submission(
 @api_router.get("/vehicles", response_model=List[Vehicle])
 async def get_vehicles():
     vehicles = await db.vehicles.find().sort("created_at", -1).to_list(1000)
-    return [Vehicle(**vehicle) for vehicle in vehicles]
+    normalized_vehicles = []
+
+    for vehicle in vehicles:
+        normalized_vehicle = normalize_vehicle_document(vehicle)
+        normalized_vehicles.append(Vehicle(**normalized_vehicle))
+
+    return normalized_vehicles
 
 
 @api_router.get("/vehicles/{vehicle_id}", response_model=Vehicle)
@@ -268,7 +349,8 @@ async def get_vehicle(vehicle_id: str):
     if not vehicle:
         raise HTTPException(status_code=404, detail="Veículo não encontrado")
 
-    return Vehicle(**vehicle)
+    normalized_vehicle = normalize_vehicle_document(vehicle)
+    return Vehicle(**normalized_vehicle)
 
 
 @api_router.post("/vehicles", response_model=Vehicle)
@@ -304,7 +386,8 @@ async def update_vehicle(
     if not result:
         raise HTTPException(status_code=404, detail="Veículo não encontrado")
 
-    return Vehicle(**result)
+    normalized_vehicle = normalize_vehicle_document(result)
+    return Vehicle(**normalized_vehicle)
 
 
 @api_router.delete("/vehicles/{vehicle_id}")
@@ -330,7 +413,7 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
- 
+
 @app.on_event("startup")
 async def startup_event():
     await init_admin()

@@ -24,7 +24,7 @@ const COLORS = {
   border: "#EAEAEA",
 };
 
-const API_URL = "http://192.168.0.112:5000/api";
+const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 type SelectedImage = {
   uri: string;
@@ -35,11 +35,14 @@ type SelectedImage = {
 const uploadImageToCloudinary = async (image: SelectedImage) => {
   const data = new FormData();
 
-  data.append("file", {
-    uri: image.uri,
-    type: image.mimeType || "image/jpeg",
-    name: image.fileName || "vehicle.jpg",
-  } as any);
+  data.append(
+    "file",
+    {
+      uri: image.uri,
+      type: image.mimeType || "image/jpeg",
+      name: image.fileName || "vehicle.jpg",
+    } as any
+  );
 
   data.append("upload_preset", "dm_motors");
 
@@ -70,9 +73,7 @@ export default function AdminScreen() {
   const [year, setYear] = useState("");
   const [price, setPrice] = useState("");
   const [km, setKm] = useState("");
-  const [fuel, setFuel] = useState("");
   const [color, setColor] = useState("");
-  const [transmission, setTransmission] = useState("");
   const [description, setDescription] = useState("");
   const [image, setImage] = useState<SelectedImage | null>(null);
 
@@ -96,6 +97,7 @@ export default function AdminScreen() {
         setToken(savedToken);
       } catch (error) {
         console.error("Erro ao verificar auth:", error);
+
         if (mounted) {
           Alert.alert("Erro", "Não foi possível validar sua sessão.");
           router.replace("/admin-login");
@@ -120,9 +122,7 @@ export default function AdminScreen() {
     setYear("");
     setPrice("");
     setKm("");
-    setFuel("");
     setColor("");
-    setTransmission("");
     setDescription("");
     setImage(null);
   };
@@ -137,8 +137,7 @@ export default function AdminScreen() {
 
   const pickImage = async () => {
     try {
-      const permission =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permission.granted) {
         Alert.alert(
@@ -177,13 +176,7 @@ export default function AdminScreen() {
   const handleSaveVehicle = async () => {
     if (loading) return;
 
-    if (
-      !brand.trim() ||
-      !model.trim() ||
-      !year.trim() ||
-      !price.trim() ||
-      !image
-    ) {
+    if (!brand.trim() || !model.trim() || !year.trim() || !price.trim() || !image) {
       Alert.alert(
         "Atenção",
         "Preencha marca, modelo, ano, preço e selecione uma imagem."
@@ -195,6 +188,11 @@ export default function AdminScreen() {
       Alert.alert("Erro", "Sessão inválida. Faça login novamente.");
       await AsyncStorage.removeItem("admin_token");
       router.replace("/admin-login");
+      return;
+    }
+
+    if (!API_URL) {
+      Alert.alert("Erro", "EXPO_PUBLIC_BACKEND_URL não configurada.");
       return;
     }
 
@@ -227,20 +225,18 @@ export default function AdminScreen() {
 
       const imageUrl = await uploadImageToCloudinary(image);
 
-      const newVehicle: any = {
+      const newVehicle = {
         brand: brand.trim(),
         model: model.trim(),
         year: parsedYear,
-        price: parsedPrice,
-        km: km.trim() ? parsedKm : 0,
-        fuel: fuel.trim(),
+        mileage: parsedKm,
         color: color.trim(),
-        transmission: transmission.trim(),
+        price: parsedPrice,
         description: description.trim(),
-        image: imageUrl,
+        photos: imageUrl ? [imageUrl] : [],
       };
 
-      const response = await fetch(`${API_URL}/vehicles`, {
+      const response = await fetch(`${API_URL}/api/vehicles`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -284,11 +280,7 @@ export default function AdminScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
+      <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.headerRow}>
           <View style={styles.headerTextBlock}>
             <Text style={styles.title}>Portal do Admin</Text>
@@ -306,7 +298,7 @@ export default function AdminScreen() {
             placeholder="Marca"
             value={brand}
             onChangeText={setBrand}
-            autoCapitalize="words"
+            placeholderTextColor="#999"
           />
 
           <TextInput
@@ -314,7 +306,7 @@ export default function AdminScreen() {
             placeholder="Modelo"
             value={model}
             onChangeText={setModel}
-            autoCapitalize="words"
+            placeholderTextColor="#999"
           />
 
           <TextInput
@@ -323,7 +315,7 @@ export default function AdminScreen() {
             value={year}
             onChangeText={setYear}
             keyboardType="numeric"
-            maxLength={4}
+            placeholderTextColor="#999"
           />
 
           <TextInput
@@ -332,6 +324,7 @@ export default function AdminScreen() {
             value={price}
             onChangeText={setPrice}
             keyboardType="numeric"
+            placeholderTextColor="#999"
           />
 
           <TextInput
@@ -340,14 +333,7 @@ export default function AdminScreen() {
             value={km}
             onChangeText={setKm}
             keyboardType="numeric"
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Combustível"
-            value={fuel}
-            onChangeText={setFuel}
-            autoCapitalize="words"
+            placeholderTextColor="#999"
           />
 
           <TextInput
@@ -355,15 +341,7 @@ export default function AdminScreen() {
             placeholder="Cor"
             value={color}
             onChangeText={setColor}
-            autoCapitalize="words"
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Câmbio"
-            value={transmission}
-            onChangeText={setTransmission}
-            autoCapitalize="words"
+            placeholderTextColor="#999"
           />
 
           <TextInput
@@ -372,6 +350,8 @@ export default function AdminScreen() {
             value={description}
             onChangeText={setDescription}
             multiline
+            numberOfLines={4}
+            placeholderTextColor="#999"
           />
 
           <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
@@ -380,9 +360,7 @@ export default function AdminScreen() {
             </Text>
           </TouchableOpacity>
 
-          {image && (
-            <Image source={{ uri: image.uri }} style={styles.previewImage} />
-          )}
+          {image && <Image source={{ uri: image.uri }} style={styles.previewImage} />}
 
           <TouchableOpacity
             style={[styles.saveButton, loading && styles.saveButtonDisabled]}

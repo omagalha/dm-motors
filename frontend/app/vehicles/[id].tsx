@@ -53,10 +53,18 @@ export default function VehicleDetailsScreen() {
   useEffect(() => {
     if (id) {
       fetchVehicle();
+    } else {
+      setLoading(false);
     }
   }, [id]);
 
   const fetchVehicle = async () => {
+    if (!BACKEND_URL) {
+      Alert.alert("Erro", "EXPO_PUBLIC_BACKEND_URL não configurada.");
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await axios.get(`${BACKEND_URL}/api/vehicles/${id}`);
       setVehicle(response.data);
@@ -83,6 +91,7 @@ export default function VehicleDetailsScreen() {
 
     try {
       const supported = await Linking.canOpenURL(appUrl);
+
       if (supported) {
         await Linking.openURL(appUrl);
       } else {
@@ -95,80 +104,71 @@ export default function VehicleDetailsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <SafeAreaView style={styles.centered}>
         <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Carregando detalhes...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!vehicle) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>Veículo não encontrado.</Text>
+      <SafeAreaView style={styles.centered}>
+        <Text style={styles.notFoundText}>Veículo não encontrado.</Text>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>Voltar</Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
-  const photos = vehicle.photos && vehicle.photos.length > 0 ? vehicle.photos : [];
+  const vehicleImages =
+    vehicle.photos && vehicle.photos.length > 0
+      ? vehicle.photos
+      : ["https://via.placeholder.com/800x500?text=Sem+foto"];
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.topBar}>
           <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={22} color={COLORS.black} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Detalhes do Veículo</Text>
+          <Text style={styles.topBarTitle}>Detalhes do veículo</Text>
 
           <View style={styles.iconButtonPlaceholder} />
         </View>
 
-        <View style={styles.imageSection}>
-          {photos.length > 0 ? (
-            <Image
-              source={{ uri: photos[selectedImage] }}
-              style={styles.mainImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={[styles.mainImage, styles.noImage]}>
-              <Ionicons name="image-outline" size={48} color={COLORS.gray} />
-              <Text style={styles.noImageText}>Sem imagem disponível</Text>
-            </View>
-          )}
-        </View>
+        <Image
+          source={{ uri: vehicleImages[selectedImage] }}
+          style={styles.mainImage}
+          resizeMode="cover"
+        />
 
-        {photos.length > 1 && (
+        {vehicleImages.length > 1 && (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.thumbnailContainer}
+            contentContainerStyle={styles.thumbnailRow}
           >
-            {photos.map((photo, index) => (
+            {vehicleImages.map((photo, index) => (
               <TouchableOpacity
                 key={`${photo}-${index}`}
                 onPress={() => setSelectedImage(index)}
-                activeOpacity={0.85}
+                style={[
+                  styles.thumbnailWrapper,
+                  selectedImage === index && styles.thumbnailSelected,
+                ]}
               >
-                <Image
-                  source={{ uri: photo }}
-                  style={[
-                    styles.thumbnail,
-                    selectedImage === index && styles.thumbnailActive,
-                  ]}
-                />
+                <Image source={{ uri: photo }} style={styles.thumbnail} />
               </TouchableOpacity>
             ))}
           </ScrollView>
         )}
 
-        <View style={styles.infoCard}>
-          <Text style={styles.vehicleTitle}>
+        <View style={styles.content}>
+          <Text style={styles.title}>
             {vehicle.brand} {vehicle.model}
           </Text>
 
@@ -176,73 +176,39 @@ export default function VehicleDetailsScreen() {
             R$ {Number(vehicle.price).toLocaleString("pt-BR")}
           </Text>
 
-          <View style={styles.badgesRow}>
-            <View style={styles.badge}>
-              <Ionicons name="calendar-outline" size={16} color={COLORS.primary} />
-              <Text style={styles.badgeText}>{vehicle.year}</Text>
+          <View style={styles.infoGrid}>
+            <View style={styles.infoCard}>
+              <Text style={styles.infoLabel}>Ano</Text>
+              <Text style={styles.infoValue}>{vehicle.year}</Text>
             </View>
 
-            <View style={styles.badge}>
-              <Ionicons name="speedometer-outline" size={16} color={COLORS.primary} />
-              <Text style={styles.badgeText}>
-                {Number(vehicle.mileage).toLocaleString("pt-BR")} km
+            <View style={styles.infoCard}>
+              <Text style={styles.infoLabel}>KM</Text>
+              <Text style={styles.infoValue}>
+                {Number(vehicle.mileage).toLocaleString("pt-BR")}
               </Text>
             </View>
 
-            <View style={styles.badge}>
-              <Ionicons name="color-palette-outline" size={16} color={COLORS.primary} />
-              <Text style={styles.badgeText}>{vehicle.color}</Text>
+            <View style={styles.infoCard}>
+              <Text style={styles.infoLabel}>Cor</Text>
+              <Text style={styles.infoValue}>{vehicle.color || "-"}</Text>
             </View>
           </View>
-        </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Informações</Text>
-
-          <View style={styles.specRow}>
-            <Text style={styles.specLabel}>Marca</Text>
-            <Text style={styles.specValue}>{vehicle.brand}</Text>
-          </View>
-
-          <View style={styles.specRow}>
-            <Text style={styles.specLabel}>Modelo</Text>
-            <Text style={styles.specValue}>{vehicle.model}</Text>
-          </View>
-
-          <View style={styles.specRow}>
-            <Text style={styles.specLabel}>Ano</Text>
-            <Text style={styles.specValue}>{vehicle.year}</Text>
-          </View>
-
-          <View style={styles.specRow}>
-            <Text style={styles.specLabel}>Quilometragem</Text>
-            <Text style={styles.specValue}>
-              {Number(vehicle.mileage).toLocaleString("pt-BR")} km
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Descrição</Text>
+            <Text style={styles.description}>
+              {vehicle.description?.trim()
+                ? vehicle.description
+                : "Sem descrição informada."}
             </Text>
           </View>
 
-          <View style={styles.specRow}>
-            <Text style={styles.specLabel}>Cor</Text>
-            <Text style={styles.specValue}>{vehicle.color}</Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Descrição</Text>
-          <Text style={styles.description}>
-            {vehicle.description?.trim()
-              ? vehicle.description
-              : "Entre em contato para mais informações sobre este veículo."}
-          </Text>
+          <TouchableOpacity style={styles.whatsappButton} onPress={handleWhatsApp}>
+            <Text style={styles.whatsappButtonText}>Tenho Interesse</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
-
-      <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.whatsappButton} onPress={handleWhatsApp} activeOpacity={0.9}>
-          <Ionicons name="logo-whatsapp" size={20} color={COLORS.white} />
-          <Text style={styles.whatsappButtonText}>Tenho interesse</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -252,207 +218,144 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.white,
   },
-  scrollContent: {
-    paddingBottom: 110,
-  },
-  center: {
+  centered: {
     flex: 1,
+    backgroundColor: COLORS.white,
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
-    backgroundColor: COLORS.white,
   },
   loadingText: {
     marginTop: 12,
     color: COLORS.gray,
     fontSize: 15,
   },
-  errorText: {
-    fontSize: 16,
-    color: COLORS.black,
-    marginBottom: 14,
-  },
-  backButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  backButtonText: {
-    color: COLORS.white,
+  notFoundText: {
+    fontSize: 18,
     fontWeight: "700",
+    color: COLORS.black,
+    marginBottom: 16,
   },
-
-  header: {
+  topBar: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 8,
+    paddingBottom: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: COLORS.lightGray,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconButtonPlaceholder: {
-    width: 42,
-    height: 42,
-  },
-  headerTitle: {
+  topBarTitle: {
     fontSize: 18,
     fontWeight: "800",
     color: COLORS.black,
   },
-
-  imageSection: {
-    paddingHorizontal: 16,
-    marginTop: 6,
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.lightGray,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  iconButtonPlaceholder: {
+    width: 40,
+    height: 40,
   },
   mainImage: {
-    width: "100%",
-    height: width * 0.68,
-    borderRadius: 18,
+    width,
+    height: 260,
     backgroundColor: COLORS.lightGray,
   },
-  noImage: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  noImageText: {
-    marginTop: 10,
-    color: COLORS.gray,
-    fontSize: 14,
-  },
-
-  thumbnailContainer: {
+  thumbnailRow: {
     paddingHorizontal: 16,
     paddingTop: 12,
     gap: 10,
   },
-  thumbnail: {
-    width: 84,
-    height: 84,
-    borderRadius: 12,
-    marginRight: 10,
+  thumbnailWrapper: {
     borderWidth: 2,
     borderColor: "transparent",
+    borderRadius: 10,
+    overflow: "hidden",
   },
-  thumbnailActive: {
+  thumbnailSelected: {
     borderColor: COLORS.primary,
   },
-
-  infoCard: {
+  thumbnail: {
+    width: 78,
+    height: 78,
+  },
+  content: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: COLORS.black,
+  },
+  price: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: COLORS.primary,
+    marginTop: 8,
+  },
+  infoGrid: {
+    flexDirection: "row",
+    gap: 10,
     marginTop: 18,
-    marginHorizontal: 16,
-    backgroundColor: COLORS.white,
-    borderRadius: 18,
-    padding: 18,
+  },
+  infoCard: {
+    flex: 1,
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 12,
+    padding: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  vehicleTitle: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: COLORS.black,
-    lineHeight: 30,
+  infoLabel: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginBottom: 4,
   },
-  price: {
-    marginTop: 10,
-    fontSize: 28,
-    fontWeight: "800",
-    color: COLORS.primary,
-  },
-
-  badgesRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginTop: 16,
-  },
-  badge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFF4F4",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 999,
-    gap: 6,
-  },
-  badgeText: {
-    fontSize: 13,
+  infoValue: {
+    fontSize: 15,
     fontWeight: "700",
     color: COLORS.black,
   },
-
   section: {
-    marginTop: 16,
-    marginHorizontal: 16,
-    backgroundColor: COLORS.white,
-    borderRadius: 18,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    marginTop: 22,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "800",
     color: COLORS.black,
-    marginBottom: 12,
+    marginBottom: 8,
   },
-
-  specRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
-  },
-  specLabel: {
-    fontSize: 15,
-    color: COLORS.gray,
-  },
-  specValue: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.black,
-    maxWidth: "55%",
-    textAlign: "right",
-  },
-
   description: {
     fontSize: 15,
-    color: COLORS.gray,
-    lineHeight: 24,
-  },
-
-  bottomBar: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: COLORS.white,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 20,
+    color: COLORS.darkGray,
+    lineHeight: 22,
   },
   whatsappButton: {
+    marginTop: 24,
     backgroundColor: COLORS.green,
-    borderRadius: 16,
     paddingVertical: 16,
+    borderRadius: 12,
     alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: 8,
   },
   whatsappButtonText: {
     color: COLORS.white,
     fontSize: 16,
     fontWeight: "800",
+  },
+  backButton: {
+    backgroundColor: COLORS.black,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  backButtonText: {
+    color: COLORS.white,
+    fontWeight: "700",
   },
 });
